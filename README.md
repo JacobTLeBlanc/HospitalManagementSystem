@@ -41,6 +41,7 @@ Drug: A drug is identified by their unique formula, is given a name and descript
 Prescription: A doctor can give a patient a prescription. Each prescription has a doctor, patient and a drug. A prescription is identified by a prescription id, and holds the amount of drugs to give patient.
 
 ### 2.2. Product Features
+The major features of the hospital management system is shown in the ER model below. 
 ![ER Model of Hospital Database](HospitalERR.png)
 
 ### 2.3. User Class and Characteristics
