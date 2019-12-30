@@ -41,6 +41,7 @@ Drug: A drug is identified by their unique formula, is given a name and descript
 Prescription: A doctor can give a patient a prescription. Each prescription has a doctor, patient and a drug. A prescription is identified by a prescription id, and holds the amount of drugs to give patient.
 
 ### 2.2. Product Features
+![ER Model of Hospital Database](HospitalERR.png)
 
 ### 2.3. User Class and Characteristics
 This system will support three types of user privileges, patients (customers), doctors and the management of the hospital (managers, etc.). The patients will only have access to patient functions. Doctors will only have access to doctor and customer functions.  Management will have access to both patient, doctor and management functions. Patient functions should do the following functions: 
