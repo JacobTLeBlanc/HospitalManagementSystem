@@ -9,9 +9,9 @@ public class HomeController {
     /**
      * Home page of application
      */
-    @GetMapping(value = "/")
+    @GetMapping(value = "/index")
     public String index() {
-        return "Hello World!";
+        return "";
     }
 
 }
