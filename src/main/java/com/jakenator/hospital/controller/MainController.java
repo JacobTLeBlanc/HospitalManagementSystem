@@ -2,8 +2,10 @@ package com.jakenator.hospital.controller;
 
 import com.jakenator.hospital.entity.Doctor;
 import com.jakenator.hospital.entity.Patient;
+import com.jakenator.hospital.entity.User;
 import com.jakenator.hospital.repository.DoctorRepository;
 import com.jakenator.hospital.repository.PatientRepository;
+import com.jakenator.hospital.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,9 @@ public class MainController {
 
     @Autowired
     private DoctorRepository doctorRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
 
     /**
@@ -49,6 +54,40 @@ public class MainController {
     }
 
     /**
+     * Add a user to database to allow for log in access to application
+     *
+     */
+    @PostMapping(path="/addUser")
+    public @ResponseBody String addNewUser (@RequestParam String email, @RequestParam String password, @RequestParam String userType, @RequestParam String userId) {
+
+        userType = userType.toLowerCase();
+        int id = Integer.parseInt(userId);
+
+        // Make sure user type is a valid type
+        if (!userType.equals("patient") && !userType.equals("doctor") && !userType.equals("manager")) {
+            return "Failed - Not a valid user type";
+        }
+
+        // Check that the id is in the database
+        if (userType.equals("patient")) {
+            if (patientRepository.findById(id) == null) {
+                return "Failed - No patient with that id";
+            }
+        }
+        else if (userType.equals(("doctor"))) {
+            if (doctorRepository.findById(id) == null) {
+                return "Failed - No doctor with that id";
+            }
+        }
+
+        // Add to database
+        User u = new User(email, password, userType, id);
+        userRepository.save(u);
+
+        return "Saved";
+    }
+
+    /**
      * Returns all doctors in doctor table in database in JSON format
      *
      */
@@ -65,4 +104,15 @@ public class MainController {
     public @ResponseBody Iterable<Patient> getAllPatients() {
         return patientRepository.findAll();
     }
+
+    /**
+     * Returns all users in user table in database in JSON format
+     *
+     */
+    @GetMapping(path="/allUsers")
+    public @ResponseBody Iterable<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+
 }

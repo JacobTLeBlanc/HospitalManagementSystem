@@ -1,0 +1,23 @@
+h1 {
+    padding: 10px 0 10px 10px;
+    margin: 0;
+}
+
+.form-control {
+    display: inline;
+    width: 70%;
+}
+
+.btn {
+    width: 20%;
+}
+
+.inputBtn {
+    display: flex;
+    justify-content: center;
+}
+
+.labelInput {
+    padding: 10px;
+    margin: 20px 0 20px 0;
+}
