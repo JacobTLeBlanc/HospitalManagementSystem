@@ -1,14 +1,23 @@
 package com.jakenator.hospital;
 
+import com.jakenator.hospital.controller.MainController;
 import com.jakenator.hospital.entity.Doctor;
 import com.jakenator.hospital.entity.Patient;
 import com.jakenator.hospital.repository.DoctorRepository;
 import com.jakenator.hospital.repository.PatientRepository;
 import com.jakenator.hospital.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpServerErrorException;
@@ -17,380 +26,227 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Test for the main controller of application
- *
- *  - Make sure application is running
  */
-@SpringBootTest
+@ExtendWith(MockitoExtension.class)
 public class MainControllerTest {
 
     private RestTemplate restTemplate;
     private HttpHeaders headers;
 
-    @Autowired
+    @InjectMocks
+    private MainController mainController;
+
+    @Mock
     private PatientRepository patientRepository;
 
-    @Autowired
+    @Mock
     private DoctorRepository doctorRepository;
 
-    @Autowired
+    @Mock
     private UserRepository userRepository;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    public void setup() {
+        this.mockMvc = MockMvcBuilders.standaloneSetup(mainController).build();
+    }
 
     /**
      * Test add patient command using POST
      */
     @Test
-    public void validAddPatientTest() {
+    public void validAddPatientTest() throws Exception {
+        when(doctorRepository.findById(1)).thenReturn(new Doctor(1, "Papa", "Doc"));
 
-        final int id = 0;
+        MvcResult result = this.mockMvc.perform(post("/main/addPatient")
+                .param("ssn", "1")
+                .param("familyDoc", "1")
+                .param("firstName", "test")
+                .param("lastName", "dummy"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Delete patient, and create doctor to test if necessary
-        if (patientRepository.findById(id) != null) {
-            patientRepository.deleteById(id);
-        }
-
-        if (doctorRepository.findById(1) == null) {
-            doctorRepository.save(new Doctor(1, "John", "Doe"));
-        }
-
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addPatient";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("ssn", String.valueOf(id));
-        input.add("familyDoc", "1");
-        input.add("firstName", "Test");
-        input.add("lastName", "Dummy");
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if patient is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Saved", response.getBody());
+        assertEquals("Saved", result.getResponse().getContentAsString());
     }
 
     /**
      * Test addPatient with an ID that is already used, should return error
      */
     @Test
-    public void invalidIDAddPatientTest() {
+    public void invalidIDAddPatientTest() throws Exception {
 
-        final int id = 999;
+        when(patientRepository.findById(1)).thenReturn(new Patient(1, new Doctor(1, "Papa", "Doc"), "Test", "Dummy"));
 
-        // Create patient and doctor to test with, if necessary
-        if (doctorRepository.findById(1) == null) {
-            doctorRepository.save(new Doctor(1, "John", "Doe"));
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addPatient")
+                .param("ssn", "1")
+                .param("familyDoc", "1")
+                .param("firstName", "test")
+                .param("lastName", "dummy"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        if (patientRepository.findById(id) == null) {
-            patientRepository.save(new Patient(id, doctorRepository.findById(1), "Test", "Dummy"));
-        }
+        assertEquals("Cannot Add - Duplicate Id", result.getResponse().getContentAsString());
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addPatient";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("ssn", String.valueOf(id));
-        input.add("familyDoc", "1");
-        input.add("firstName", "Test");
-        input.add("lastName", "Dummy");
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try post and check error code
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-        } catch(HttpServerErrorException e) {
-            assertEquals(500, e.getRawStatusCode());
-        } catch (Exception e) {
-            assert false;
-        }
     }
 
     /**
      * Test Add Patient command with a doctor that does not exist in database
      */
     @Test
-    public void invalidDoctorAddPatientTest() {
-        final int id = 000;
+    public void invalidDoctorAddPatientTest() throws Exception {
+        when(doctorRepository.findById(1)).thenReturn(null);
 
-        // Create patient and doctor to test with, if necessary
-        if (doctorRepository.findById(00000) != null) {
-            doctorRepository.deleteById(00000);
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addPatient")
+                .param("ssn", "1")
+                .param("familyDoc", "1")
+                .param("firstName", "test")
+                .param("lastName", "dummy"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        if (patientRepository.findById(id) != null) {
-            patientRepository.deleteById(id);
-        }
-
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addPatient";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("ssn", String.valueOf(id));
-        input.add("familyDoc", "00000");
-        input.add("firstName", "Test");
-        input.add("lastName", "Dummy");
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try post and check error code
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-        } catch(HttpServerErrorException e) {
-            assertEquals(500, e.getRawStatusCode());
-        } catch (Exception e) {
-            assert false;
-        }
+        assertEquals("Cannot Add - Family Doctor not found", result.getResponse().getContentAsString());
     }
 
     /**
      * Test for the add doctor command with valid parameters
      */
     @Test
-    public void validAddDoctorTest() {
-        final int id = 00000;
+    public void validAddDoctorTest() throws Exception {
+        MvcResult result = this.mockMvc.perform(post("/main/addDoctor")
+                .param("empId", "0")
+                .param("firstName", "Papa")
+                .param("lastName", "Doc"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        if (doctorRepository.findById(id) != null) {
-            doctorRepository.deleteById(id);
-        }
-
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addDoctor";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("empId", "12345");
-        input.add("firstName", "John");
-        input.add("lastName", "Doe");
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if doctor is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Saved", response.getBody());
-
-        // Delete once finished
-        doctorRepository.deleteById(id);
+        assertEquals("Saved", result.getResponse().getContentAsString());
     }
 
     /**
      * Test the add doctor command with an ID already in table
      */
     @Test
-    public void invalidIDAddDoctorTest() {
-        final int id = 00000;
+    public void invalidIDAddDoctorTest() throws Exception {
+        when(doctorRepository.findById(0)).thenReturn(new Doctor(0, "Papa", "Doc"));
 
-        if (doctorRepository.findById(id) == null) {
-            doctorRepository.save(new Doctor(id, "John", "Doe"));
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addDoctor")
+                .param("empId", "0")
+                .param("firstName", "Papa")
+                .param("lastName", "Doc"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addDoctor";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("empId", "12345");
-        input.add("firstName", "John");
-        input.add("lastName", "Doe");
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try post and check error code
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-        } catch(HttpServerErrorException e) {
-            assertEquals(500, e.getRawStatusCode());
-        } catch (Exception e) {
-            assert false;
-        }
+        assertEquals("Cannot Add - Duplicate Emp Id", result.getResponse().getContentAsString());
     }
 
     /**
      * Test for add User command where the user is a patient
      */
     @Test
-    public void validPatientAddUserTest() {
-        final int patientId = 000;
-        final int doctorId = 00000;
+    public void validPatientAddUserTest() throws Exception {
+        when(patientRepository.findById(0)).thenReturn(new Patient(0, new Doctor(0, "Papa", "Doc"), "Test", "Dummy"));
 
-        if (doctorRepository.findById(doctorId) == null) {
-            doctorRepository.save(new Doctor(doctorId, "John", "Doe"));
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "patient")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        if (patientRepository.findById(patientId) == null) {
-            patientRepository.save(new Patient(patientId, doctorRepository.findById(doctorId), "Test", "Dummy"));
-        }
-
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addUser";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("email", "fakeemail@gmail.com");
-        input.add("password", "password123");
-        input.add("userType", "patient");
-        input.add("userId", String.valueOf(patientId));
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if user is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Saved", response.getBody());
-
-        userRepository.deleteById("fakeemail@gmail.com");
-
+        assertEquals("Saved", result.getResponse().getContentAsString());
     }
 
     /**
      * Test a valid use of add User using a doctor's information
      */
     @Test
-    public void validDoctorAddUserTest() {
-        final int doctorId = 00000;
+    public void validDoctorAddUserTest() throws Exception {
+        when(doctorRepository.findById(0)).thenReturn(new Doctor(0, "Papa", "Doc"));
 
-        if (doctorRepository.findById(doctorId) == null) {
-            doctorRepository.save(new Doctor(doctorId, "John", "Doe"));
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "doctor")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addUser";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("email", "fakeemail@gmail.com");
-        input.add("password", "password123");
-        input.add("userType", "doctor");
-        input.add("userId", String.valueOf(doctorId));
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if user is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Saved", response.getBody());
-
-        userRepository.deleteById("fakeemail@gmail.com");
+        assertEquals("Saved", result.getResponse().getContentAsString());
     }
 
     /**
      * Try to add a user that is a patient with a id that is not in database
      */
     @Test
-    public void invalidPatientUserIdAddUserTest() {
-        final int patientId = 000;
+    public void invalidPatientUserIdAddUserTest() throws Exception {
+        when(patientRepository.findById(0)).thenReturn(null);
 
-        if (patientRepository.findById(patientId) != null) {
-            patientRepository.deleteById(patientId);
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "patient")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addUser";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("email", "fakeemail@gmail.com");
-        input.add("password", "password123");
-        input.add("userType", "patient");
-        input.add("userId", String.valueOf(patientId));
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if user is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Failed - No patient with that id", response.getBody());
+        assertEquals("Cannot Add - No patient with that id", result.getResponse().getContentAsString());
     }
 
     /**
      * Try to add a doctor to user list that does not have an id matching in database
      */
     @Test
-    public void invalidDoctorUserIdAddUserTest() {
-        final int doctorId = 000;
+    public void invalidDoctorUserIdAddUserTest() throws Exception {
+        when(doctorRepository.findById(0)).thenReturn(null);
 
-        if (doctorRepository.findById(doctorId) != null) {
-            doctorRepository.deleteById(doctorId);
-        }
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "doctor")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addUser";
-
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("email", "fakeemail@gmail.com");
-        input.add("password", "password123");
-        input.add("userType", "doctor");
-        input.add("userId", String.valueOf(doctorId));
-
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if user is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Failed - No doctor with that id", response.getBody());
+        assertEquals("Cannot Add - No doctor with that id", result.getResponse().getContentAsString());
     }
 
     /**
      * Try to add user of a different type then what is allowed
      */
     @Test
-    public void invalidUserTypeAddUserTest() {
-        final int doctorId = 000;
+    public void invalidUserTypeAddUserTest() throws Exception {
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "null")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        // Setup post request
-        final String uri = "http://localhost:8080/main/addUser";
+        assertEquals("Cannot Add - Not a valid user type", result.getResponse().getContentAsString());
+    }
 
-        MultiValueMap<String, String> input = new LinkedMultiValueMap<String, String>();
-        input.add("email", "fakeemail@gmail.com");
-        input.add("password", "password123");
-        input.add("userType", "author");
-        input.add("userId", String.valueOf(doctorId));
+    /**
+     * Test add user that is a manager
+     */
+    @Test
+    public void validManagerAddUserTest() throws Exception {
+        MvcResult result = this.mockMvc.perform(post("/main/addUser")
+                .param("email", "fakeemail@gmail.com")
+                .param("password", "password")
+                .param("userType", "manager")
+                .param("userId", "0"))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        restTemplate = new RestTemplate();
-        headers = new HttpHeaders();
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(input, headers);
-
-        // Try to post and check if user is added
-        ResponseEntity<String> response = restTemplate.postForEntity(uri, request, String.class);
-
-        assertEquals("Failed - Not a valid user type", response.getBody());
+        assertEquals("Saved", result.getResponse().getContentAsString());
     }
 }

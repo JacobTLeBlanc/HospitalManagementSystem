@@ -32,6 +32,10 @@ public class MainController {
     public @ResponseBody String addNewDoctor (@RequestParam String empId, @RequestParam String firstName, @RequestParam String lastName) {
         Doctor d = new Doctor(Integer.parseInt(empId), firstName, lastName);
 
+        if (doctorRepository.findById(d.getEmpId()) != null) {
+            return "Cannot Add - Duplicate Emp Id";
+        }
+
         doctorRepository.save(d);
         return "Saved";
     }
@@ -47,6 +51,14 @@ public class MainController {
 
         Doctor d = doctorRepository.findById(Integer.parseInt(familyDoc));
         Patient p = new Patient(Integer.parseInt(ssn), d, firstName, lastName);
+
+        if (patientRepository.findById(p.getSsn()) != null) {
+            return "Cannot Add - Duplicate Id";
+        }
+
+        if (d == null) {
+            return "Cannot Add - Family Doctor not found";
+        }
 
         patientRepository.save(p);
 
@@ -65,18 +77,18 @@ public class MainController {
 
         // Make sure user type is a valid type
         if (!userType.equals("patient") && !userType.equals("doctor") && !userType.equals("manager")) {
-            return "Failed - Not a valid user type";
+            return "Cannot Add - Not a valid user type";
         }
 
         // Check that the id is in the database
         if (userType.equals("patient")) {
             if (patientRepository.findById(id) == null) {
-                return "Failed - No patient with that id";
+                return "Cannot Add - No patient with that id";
             }
         }
         else if (userType.equals(("doctor"))) {
             if (doctorRepository.findById(id) == null) {
-                return "Failed - No doctor with that id";
+                return "Cannot Add - No doctor with that id";
             }
         }
 
